@@ -346,4 +346,6 @@ tags
 # Persistent undo
 [._]*.un~
 
+controles/
+
 # End of https://www.toptal.com/developers/gitignore/api/vim,linux,latex
