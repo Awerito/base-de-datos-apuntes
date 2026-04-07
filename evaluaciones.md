@@ -8,10 +8,10 @@ Primer semestre 2026. Martes 2h + Jueves 3h.
 |-----|--------|--------|-----------|------------|
 | 1 | Mar 17 | Mar 19 | 01-Intro BD + 02-Definición BD | |
 | 2 | Mar 24 | Mar 26 | 03-MER | |
-| 3 | Mar 31 | Abr 2 | 04-Modelo Relacional | |
-| 4 | Abr 7 | Abr 9 | 05-MER-MR | |
-| 5 | Abr 14 | Abr 16 | 06-Normalización | |
-| 6 | Abr 21 | **Abr 23** | Normalización cierre + ejercicios | **Control Normalización (Jue 23)** |
+| 3 | Mar 31 | Abr 2 | 04-Modelo Relacional + 05-MER-MR | |
+| 4 | Abr 7 | Abr 9 | 06-Normalización | |
+| 5 | Abr 14 | Abr 16 | Normalización cierre | |
+| 6 | Abr 21 | **Abr 23** | Ejercicios | **Control Normalización (Jue 23)** |
 | 7 | Abr 28 | Abr 30 | 07-SQL Intro: PostgreSQL + Antares + CREATE TABLE | |
 | 8 | May 5 | **May 7** | SQL Estructura: ALTER, constraints, diseño físico | **Control SQL Estructura (Jue 7)** |
 | 9 | May 12 | **May 14** | Álgebra/Cálculo relacional express (Mar) + SQL SELECT, WHERE | **Control Álgebra/Cálculo Relacional (Jue 14)** + Entrega Proyecto Etapa 1 (presentación) |
