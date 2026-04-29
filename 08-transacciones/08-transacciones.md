@@ -1,7 +1,7 @@
 ---
-title: "Transacciones SQL y ORMs"
+title: "Transacciones SQL"
 author: "Diego Muñoz"
-date: "11 Mayo 2025"
+date: "29 Abril 2026"
 theme: "metropolis"
 aspectratio: 169
 colorlinks: true
@@ -77,152 +77,109 @@ ROLLBACK;
 
 ---
 
-# Transacciones en Python
+# Auto-commit vs commit manual
 
-## ¿Cómo implementarlas?
-
-* Usaremos **SQLAlchemy + Alembic**.
-* SQLAlchemy ofrece control total de transacciones.
-* Alembic permite versionar el esquema automáticamente.
-
----
-
-# Instalación de dependencias
-
-```bash
-pip install python-dotenv sqlalchemy alembic psycopg2-binary
-```
-
-```bash
-project/
-├── main.py
-└── app/
-    ├── __init__.py
-    ├── models.py
-    └── db.py
-```
+* La mayoría de los clientes SQL traen **auto-commit activado por defecto**.
+* Con auto-commit, **cada sentencia se confirma sola** apenas termina: no hay vuelta atrás.
+* Para usar transacciones reales (varias sentencias como una unidad) hay dos opciones:
+  1. **Desactivar auto-commit** en el cliente.
+  2. Envolver las sentencias en `BEGIN; ... COMMIT;` (o `ROLLBACK;`) explícito.
 
 ---
 
-# Configuración base
+# Antares SQL: auto-commit
 
-## `> db.py`
+* Antares ofrece la opción de auto-commit en la configuración de la conexión /
+  consola.
+* Con auto-commit on, cada sentencia se confirma sola; con off, las
+  operaciones quedan pendientes hasta confirmar.
 
-```python
-import os
-from dotenv import load_dotenv
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-
-# WARN: No uses credenciales en producción sin variables de entorno
-# URI: "driver://user:password@host:port/dbname"
-load_dotenv()
-DATABASE_URI = os.getenv("DATABASE_URI", "")
-engine = create_engine(DATABASE_URI)
-SessionLocal = sessionmaker(bind=engine)
-Base = declarative_base()
-```
+![Auto-commit en Antares SQL](imgs/antares-autocommit.png){ width=70% }
 
 ---
 
-# Definición de modelo
+# Antares SQL: commit / rollback manual
 
-## `> models.py`
+* Al desactivar el auto-commit aparecen los botones **Commit** y **Rollback**.
+* Los cambios sólo son visibles en otras sesiones después de presionar
+  **Commit**; **Rollback** descarta todo lo hecho desde el último commit.
 
-```python
-from sqlalchemy import Column, Integer, String
-from .db import Base
-
-class Cuenta(Base):
-    __tablename__ = "cuenta"
-    id = Column(Integer, primary_key=True)
-    nombre = Column(String, nullable=False)
-    saldo = Column(Integer, nullable=False)
-```
+![Commit y rollback manual en Antares SQL](imgs/antares-commit-manual.png){ width=70% }
 
 ---
 
-# Inicializar Alembic
+# DBeaver: cómo activar commit manual
 
-```bash
-alembic init alembic
-```
-
-```bash
-project/
-├── alembic.ini
-├── main.py
-├── app/
-│   ├── __init__.py
-│   ├── models.py
-│   └── db.py
-└── alembic/
-    └── versions/
-```
+* En la barra de herramientas del editor SQL, click derecho sobre el ícono
+  de transacción (o menú **Transactions**) → cambiar de **Auto-commit** a
+  **Manual commit**.
+* También se puede fijar por conexión en **Connection settings →
+  Connections → Transactions**.
+* Al pasar a manual aparecen los botones **Commit** y **Rollback** en la
+  barra inferior del editor.
 
 ---
 
-# Inicializar Alembic
+# DBeaver: menú Transaction mode
 
-* En `env.py`, importa tus modelos:
-
-```python
-from dotenv import load_dotenv
-import os
-from app.db import Base
-from app import models
-load_dotenv()
-config = context.config
-config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URI", ""))
-target_metadata = Base.metadata
-```
+![Activar commit manual en DBeaver](imgs/dbeaver-manual-commit.png){ height=80% }
 
 ---
 
-# Crear la tabla
+# DBeaver: botones deshabilitados en auto-commit
 
-```bash
-alembic revision --autogenerate -m "create cuenta table"
-alembic upgrade head
-```
+* En modo **Auto-commit**, los botones **Commit** y **Rollback** aparecen
+  **deshabilitados** por defecto: no tiene sentido confirmar o revertir
+  porque cada sentencia ya se confirma sola al ejecutarse.
+* Sólo se habilitan al pasar la conexión a **Manual commit**.
 
-> Alembic generará y aplicará los cambios automáticamente.
-
----
-
-# Ejemplo de transacción
-
-## `> main.py`
-
-```python
-from app.db import SessionLocal
-from app.models import Cuenta
-
-def transferir(origen_id, destino_id, monto):
-    db = SessionLocal()
-    try:
-        origen = db.query(Cuenta).filter_by(id=origen_id).one()
-        destino = db.query(Cuenta).filter_by(id=destino_id).one()
-        if origen.saldo < monto:
-            raise ValueError("Fondos insuficientes")
-        origen.saldo -= monto
-        destino.saldo += monto
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        raise
-    finally:
-        db.close()
-```
+![Botones Commit/Rollback deshabilitados en auto-commit](imgs/dbeaver-autocommit-disabled.png){ width=70% }
 
 ---
 
-# Manejo automático de errores
+# DBeaver: botones habilitados en commit manual
 
-* Toda la transacción está protegida con `try/except`.
-* Si algo falla, `rollback()`.
-* Si todo sale bien, `commit()`.
+* Con **Manual commit** activado, los botones **Commit** y **Rollback** se
+  habilitan en la barra del editor.
+* Desde aquí se confirma o revierte explícitamente lo ejecutado desde el
+  último commit.
+
+![Botones Commit/Rollback habilitados en commit manual](imgs/dbeaver-manual-enabled.png){ width=70% }
+
+---
+
+# DBeaver: contador de transacciones
+
+* El recuadro que dice **None** (junto a los botones) lleva el **historial de
+  transacciones pendientes** de la sesión.
+* Cada vez que corres una sentencia en modo manual, el contador **suma**:
+  son operaciones acumuladas que aún no se confirman.
+* Al hacer **Commit** o **Rollback**, el contador se resetea a **None**.
+
+---
+
+# Cuidado con el auto-commit
+
+* Auto-commit confirma cada sentencia **siempre que el motor no devuelva
+  un error** (sintaxis, constraint, FK inválida, etc.).
+* **No protege** contra **errores de regla de negocio**: si la sentencia
+  es válida para el motor, queda confirmada.
+* Ejemplo: un `UPDATE` que deja una cuenta de banco en saldo negativo es
+  SQL perfectamente válido, ej: sin un `CHECK (saldo >= 0)` o una
+  transacción manual que valide y haga `ROLLBACK`, queda persistido.
+* Conclusión: para flujos con reglas de negocio, **commit manual** o
+  validaciones explícitas (CHECK, triggers, lógica en la app).
+
+---
+
+# ¿Cuándo usar cada modo?
+
+* **Auto-commit on**: exploración rápida, consultas de lectura, scripts simples.
+* **Auto-commit off / `BEGIN` explícito**: operaciones críticas, varias
+  sentencias relacionadas, cuando se quiere poder revertir si algo sale mal.
+
+> Regla práctica: si te equivocas y haces `UPDATE` sin `WHERE` con auto-commit on,
+> **no hay rollback que valga**. Con transacción explícita, sí.
 
 ---
 
@@ -262,20 +219,13 @@ def transferir(origen_id, destino_id, monto):
 
 # ¿Cómo cambiar el nivel de aislamiento?
 
-```python
-from sqlalchemy import text
+```sql
+BEGIN;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 
-def operacion_avanzada():
-    db = SessionLocal()
-    try:
-        db.execute(text("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE"))
-        # operaciones...
-        db.commit()
-    except:
-        db.rollback()
-        raise
-    finally:
-        db.close()
+-- operaciones...
+
+COMMIT;
 ```
 
 > Solo usa niveles estrictos si realmente necesitas esa garantía.
@@ -286,18 +236,8 @@ def operacion_avanzada():
 
 * Concepto de transacción y propiedades ACID.
 * Ejemplos en SQL con `BEGIN`, `COMMIT`, `ROLLBACK`.
-* Implementación segura en Python con SQLAlchemy.
-* Migraciones automáticas con Alembic.
-* Manejo de errores y aislamiento.
-
-<!-- --- -->
-<!---->
-<!-- # ¿Y ahora qué? -->
-<!---->
-<!-- ## Siguientes pasos: -->
-<!---->
-<!-- * Optimización de transacciones largas. -->
-<!-- * Control de concurrencia: bloqueos y deadlocks. -->
+* Auto-commit vs commit manual en DBeaver y Antares SQL.
+* Niveles de aislamiento.
 
 ---
 
@@ -307,4 +247,4 @@ def operacion_avanzada():
 
 * Implementa una transferencia segura.
 * Genera errores intencionales y observa el rollback.
-* Juega con el orden de operaciones.
+* Prueba el mismo flujo con auto-commit on y off, en DBeaver o Antares.
