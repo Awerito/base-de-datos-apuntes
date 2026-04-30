@@ -232,19 +232,76 @@ COMMIT;
 
 ---
 
+# Vistas SQL
+
+* Una **vista** es una consulta `SELECT` guardada con un nombre.
+* Se consulta **como si fuera una tabla**, pero los datos se calculan
+  al vuelo desde las tablas base.
+* Útiles para:
+  * Encapsular `JOIN`s repetidos en un solo nombre.
+  * Simplificar reportes consolidados.
+  * Exponer sólo un subconjunto de columnas (ocultar las sensibles).
+
+---
+
+# Crear y usar una vista
+
+```sql
+CREATE VIEW alumno_curso_detalle AS
+SELECT a.nombre AS alumno,
+       c.nombre AS curso,
+       p.nombre AS profesor
+FROM alumno a
+JOIN alumno_curso ac ON ac.alumno_id = a.id
+JOIN curso c         ON c.id = ac.curso_id
+JOIN profesor p      ON p.id = c.profesor_id;
+
+SELECT * FROM alumno_curso_detalle;
+```
+
+* `DROP VIEW alumno_curso_detalle;` para eliminarla.
+* `CREATE OR REPLACE VIEW ...` para redefinirla sin borrarla.
+
+---
+
+# Tipos de vista
+
+* **Vista normal (`CREATE VIEW`)**: **no almacena datos**. Cada
+  consulta **vuelve a ejecutar el `SELECT`** sobre las tablas base.
+  Siempre fresca, paga el costo del query cada vez.
+* **Vista materializada (`CREATE MATERIALIZED VIEW`)**: el resultado
+  se **persiste físicamente en disco** como una tabla derivada.
+  Consultas baratas, pero los datos **quedan congelados** hasta llamar
+  a `REFRESH MATERIALIZED VIEW nombre;`.
+* Trade-off: **fresca vs barata**.
+  * Datos que cambian al segundo → vista normal.
+  * Reporte pesado que no necesita estar al instante → materializada.
+
+---
+
+# Mantener una materialized view actualizada
+
+* Hay que decidir **cuándo** ejecutar el `REFRESH`:
+  * Manual, cuando se necesite el reporte.
+  * En un **cron** (cada hora, cada noche).
+  * **Automáticamente** cuando cambien las tablas base.
+* El refresh automático ante cambios se resuelve con **triggers** sobre
+  las tablas base, que disparan el `REFRESH` cuando hay `INSERT`,
+  `UPDATE` o `DELETE`.
+<!-- * Triggers se ven en la próxima clase. -->
+
+---
+
 # ¿Qué vimos hoy?
 
 * Concepto de transacción y propiedades ACID.
 * Ejemplos en SQL con `BEGIN`, `COMMIT`, `ROLLBACK`.
 * Auto-commit vs commit manual en DBeaver y Antares SQL.
 * Niveles de aislamiento.
+* Vistas SQL: `VIEW` (recalcula) vs `MATERIALIZED VIEW` (persiste).
 
 ---
 
-# ¿Preguntas?
+# Preguntas y Discusión  
 
-### Juega:
-
-* Implementa una transferencia segura.
-* Genera errores intencionales y observa el rollback.
-* Prueba el mismo flujo con auto-commit on y off, en DBeaver o Antares.
+¿Tienes dudas? ¡Hablemos!
