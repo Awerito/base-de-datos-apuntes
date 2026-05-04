@@ -36,16 +36,18 @@ output: beamer_presentation
 
 # Esquema de ejemplo
 
-## Tablas que usaremos
+## Tablas que usaremos (mismo modelo de la clase 07)
 
 ```
-Jugador(id, nombre, categoria_id)
-Categoria(id, nombre)
-Partido(id, jugador1_id, jugador2_id, puntos_j1, puntos_j2)
+Alumno(id, nombre)
+Profesor(id, nombre)
+Curso(id, nombre, profesor)
+AlumnoCurso(alumno, curso)
 ```
 
-- `Jugador.categoria_id` → `Categoria.id`
-- `Partido.jugador1_id`, `Partido.jugador2_id` → `Jugador.id`
+- `Curso.profesor` → `Profesor.id`
+- `AlumnoCurso.alumno` → `Alumno.id`
+- `AlumnoCurso.curso`  → `Curso.id`
 
 ---
 
@@ -71,14 +73,14 @@ Partido(id, jugador1_id, jugador2_id, puntos_j1, puntos_j2)
 
 # Selección $\sigma$
 
-### Ejemplo: jugadores de la categoría 1
+### Ejemplo: cursos del profesor 1
 
-$$\sigma_{categoria\_id = 1}(Jugador)$$
+$$\sigma_{profesor = 1}(Curso)$$
 
 ### Equivalente SQL
 
 ```sql
-SELECT * FROM Jugador WHERE categoria_id = 1;
+SELECT * FROM Curso WHERE profesor = 1;
 ```
 
 ---
@@ -95,17 +97,17 @@ SELECT * FROM Jugador WHERE categoria_id = 1;
 
 # Proyección $\pi$
 
-### Ejemplo: nombres de los jugadores
+### Ejemplo: nombres de los alumnos
 
-$$\pi_{nombre}(Jugador)$$
+$$\pi_{nombre}(Alumno)$$
 
 ### Equivalente SQL
 
 ```sql
-SELECT DISTINCT nombre FROM Jugador;
+SELECT DISTINCT nombre FROM Alumno;
 ```
 
-> SQL no elimina duplicados por defecto — usa `DISTINCT`.
+> SQL no elimina duplicados por defecto.
 
 ---
 
@@ -120,17 +122,69 @@ SELECT DISTINCT nombre FROM Jugador;
 
 # Operaciones de Conjuntos
 
-### Ejemplo: jugadores en categoría 1 o 2
+### Ejemplo (unión): alumnos inscritos en el curso 1 *o* en el curso 2
 
-$$\sigma_{categoria\_id = 1}(Jugador) \cup \sigma_{categoria\_id = 2}(Jugador)$$
+$$\pi_{alumno}(\sigma_{curso = 1}(AlumnoCurso)) \cup \pi_{alumno}(\sigma_{curso = 2}(AlumnoCurso))$$
 
 ### Equivalente SQL
 
 ```sql
-SELECT * FROM Jugador WHERE categoria_id = 1
+SELECT alumno FROM AlumnoCurso WHERE curso = 1
 UNION
-SELECT * FROM Jugador WHERE categoria_id = 2;
+SELECT alumno FROM AlumnoCurso WHERE curso = 2;
 ```
+
+---
+
+# Operaciones de Conjuntos
+
+### Ejemplo (intersección): alumnos inscritos en el curso 1 *y* en el curso 2
+
+$$\pi_{alumno}(\sigma_{curso = 1}(AlumnoCurso)) \cap \pi_{alumno}(\sigma_{curso = 2}(AlumnoCurso))$$
+
+### Equivalente SQL
+
+```sql
+SELECT alumno FROM AlumnoCurso WHERE curso = 1
+INTERSECT
+SELECT alumno FROM AlumnoCurso WHERE curso = 2;
+```
+
+---
+
+# Operaciones de Conjuntos
+
+### Ejemplo (diferencia): alumnos inscritos en el curso 1 *pero no* en el curso 2
+
+$$\pi_{alumno}(\sigma_{curso = 1}(AlumnoCurso)) - \pi_{alumno}(\sigma_{curso = 2}(AlumnoCurso))$$
+
+### Equivalente SQL (con `EXCEPT`)
+
+```sql
+SELECT alumno FROM AlumnoCurso WHERE curso = 1
+EXCEPT
+SELECT alumno FROM AlumnoCurso WHERE curso = 2;
+```
+
+---
+
+# Operaciones de Conjuntos
+
+### Diferencia con `LEFT JOIN` (anti-join)
+
+```sql
+SELECT a1.alumno
+FROM AlumnoCurso a1
+LEFT JOIN AlumnoCurso a2
+  ON a2.alumno = a1.alumno AND a2.curso = 2
+WHERE a1.curso = 1
+  AND a2.alumno IS NULL;
+```
+
+> El patrón `LEFT JOIN ... WHERE ... IS NULL` es la forma habitual
+> de expresar la diferencia cuando el motor no soporta `EXCEPT` o
+> cuando se necesita combinar con otras condiciones. `RIGHT JOIN`
+> sirve para el caso simétrico.
 
 ---
 
@@ -139,8 +193,44 @@ SELECT * FROM Jugador WHERE categoria_id = 2;
 ## Definición
 
 - $R \times S$ combina **cada tupla de $R$ con cada tupla de $S$**.
-- Casi nunca se usa solo: el producto suele combinarse con una selección
-  para filtrar combinaciones válidas → eso es el **join**.
+- Por sí solo casi nunca entrega un resultado útil: mezcla filas que no
+  tienen relación lógica.
+- Cuando le aplicamos una selección $\sigma$ que filtra las combinaciones
+  válidas obtenemos un **join**: $R \bowtie_{\theta} S = \sigma_{\theta}(R \times S)$.
+
+---
+
+# Producto Cartesiano $\times$
+
+### Ejemplo: todos los pares posibles alumno-curso
+
+$$Alumno \times Curso$$
+
+### Equivalente SQL
+
+```sql
+SELECT * FROM Alumno CROSS JOIN Curso;
+```
+
+> Devuelve |Alumno| - |Curso| filas: cada alumno emparejado con cada curso
+
+---
+
+# Producto Cartesiano $\times$
+
+### Diferencia con un JOIN
+
+Un JOIN toma ese producto cartesiano y lo filtra con una condición (ON),
+dejando solo las filas que cumplen la relación
+
+```sql
+SELECT * FROM Alumno
+JOIN alumno_curso ON alumno_curso.alumno = Alumno.id
+JOIN Curso ON alumno_curso.curso = Curso.id;
+```
+
+- `CROSS JOIN`: todas las combinaciones.
+- `JOIN ... ON ...`: las que cumplen la condición
 
 ---
 
@@ -150,7 +240,25 @@ SELECT * FROM Jugador WHERE categoria_id = 2;
 
 - $\rho_{S}(R)$ renombra la relación a $S$.
 - $\rho_{S(a,b,c)}(R)$ renombra también los atributos.
-- Útil al hacer un producto consigo misma (ej. comparar partidos).
+- Útil al hacer un producto consigo misma o para resolver colisiones de
+  nombres antes de un join.
+
+---
+
+# Renombrado $\rho$
+
+### Ejemplo: pares de cursos distintos del mismo profesor
+
+$$\sigma_{C1.profesor = C2.profesor \,\land\, C1.id < C2.id}(\rho_{C1}(Curso) \times \rho_{C2}(Curso))$$
+
+### Equivalente SQL
+
+```sql
+SELECT C1.id, C2.id
+FROM Curso AS C1, Curso AS C2
+WHERE C1.profesor = C2.profesor
+  AND C1.id < C2.id;
+```
 
 ---
 
@@ -160,19 +268,25 @@ SELECT * FROM Jugador WHERE categoria_id = 2;
 
 - Combina tuplas de $R$ y $S$ que coinciden en los **atributos comunes**.
 - Notación: $R \bowtie S$.
+- Ojo: si los atributos comunes no son los que queremos comparar, hay que
+  **renombrar** primero o usar un $\theta$-join.
 
 ---
 
 # Join Natural $\bowtie$
 
-### Ejemplo: jugadores con su categoría
+### Ejemplo: alumnos junto con los cursos en que están inscritos
 
-$$Jugador \bowtie Categoria$$
+Renombramos para que el atributo común sea `alumno`:
+
+$$\rho_{A(alumno, nombre)}(Alumno) \bowtie AlumnoCurso$$
 
 ### Equivalente SQL
 
 ```sql
-SELECT * FROM Jugador NATURAL JOIN Categoria;
+SELECT *
+FROM Alumno a
+JOIN AlumnoCurso ac ON ac.alumno = a.id;
 ```
 
 ---
@@ -184,9 +298,17 @@ SELECT * FROM Jugador NATURAL JOIN Categoria;
 - Join con una condición arbitraria $\theta$.
 - $R \bowtie_{\theta} S = \sigma_{\theta}(R \times S)$.
 
-### Ejemplo: pares de jugadores con id menor
+### Ejemplo: cada curso con su profesor
 
-$$Jugador \bowtie_{Jugador.id < J2.id} \rho_{J2}(Jugador)$$
+$$Curso \bowtie_{Curso.profesor = Profesor.id} Profesor$$
+
+### Equivalente SQL
+
+```sql
+SELECT *
+FROM Curso c
+JOIN Profesor p ON p.id = c.profesor;
+```
 
 ---
 
@@ -195,8 +317,39 @@ $$Jugador \bowtie_{Jugador.id < J2.id} \rho_{J2}(Jugador)$$
 ## Definición
 
 - $R \div S$: tuplas de $R$ que están relacionadas con **todas** las tuplas de $S$.
-- Útil para preguntas tipo "jugadores que jugaron con **todos** los rivales del torneo".
+- Útil para preguntas tipo "alumnos inscritos en **todos** los cursos del
+  profesor X".
 - En SQL se traduce con `NOT EXISTS` anidados o `HAVING COUNT(*)`.
+
+---
+
+# División $\div$
+
+### Ejemplo: alumnos inscritos en *todos* los cursos del profesor 1
+
+Sea $R = AlumnoCurso$ y $S = \rho_{S(curso)}(\pi_{id}(\sigma_{profesor = 1}(Curso)))$:
+
+$$R \div S$$
+
+---
+
+# División $\div$
+
+### Equivalente SQL (con doble `NOT EXISTS`)
+
+```sql
+SELECT DISTINCT ac.alumno
+FROM AlumnoCurso ac
+WHERE NOT EXISTS (
+  SELECT 1 FROM Curso c
+  WHERE c.profesor = 1
+    AND NOT EXISTS (
+      SELECT 1 FROM AlumnoCurso ac2
+      WHERE ac2.alumno = ac.alumno
+        AND ac2.curso  = c.id
+    )
+);
+```
 
 ---
 
@@ -223,14 +376,14 @@ $$\{ t \mid P(t) \}$$
 
 # Cálculo de Tuplas
 
-### Ejemplo: jugadores de la categoría 1
+### Ejemplo: cursos del profesor 1
 
-$$\{ t \mid t \in Jugador \land t.categoria\_id = 1 \}$$
+$$\{ t \mid t \in Curso \land t.profesor = 1 \}$$
 
 ### Equivalente SQL
 
 ```sql
-SELECT * FROM Jugador WHERE categoria_id = 1;
+SELECT * FROM Curso WHERE profesor = 1;
 ```
 
 ---
@@ -247,14 +400,14 @@ $$\{ \langle x_1, ..., x_n \rangle \mid P(x_1, ..., x_n) \}$$
 
 # Cálculo de Dominios
 
-### Ejemplo: nombres en categoría 1
+### Ejemplo: nombres de cursos del profesor 1
 
-$$\{ \langle n \rangle \mid \exists i, c \, ( \langle i, n, c \rangle \in Jugador \land c = 1 ) \}$$
+$$\{ \langle n \rangle \mid \exists i, p \, ( \langle i, n, p \rangle \in Curso \land p = 1 ) \}$$
 
 ### Equivalente SQL
 
 ```sql
-SELECT DISTINCT nombre FROM Jugador WHERE categoria_id = 1;
+SELECT DISTINCT nombre FROM Curso WHERE profesor = 1;
 ```
 
 ---
@@ -279,28 +432,14 @@ SELECT DISTINCT nombre FROM Jugador WHERE categoria_id = 1;
 | $\pi_{attrs}(R)$ | `SELECT DISTINCT attrs` |
 | $R \cup S$ | `UNION` |
 | $R \cap S$ | `INTERSECT` |
-| $R - S$ | `EXCEPT` |
+| $R - S$ | `EXCEPT` / `LEFT JOIN ... IS NULL` |
 | $R \times S$ | `CROSS JOIN` |
 | $R \bowtie S$ | `NATURAL JOIN` / `JOIN ... ON` |
 | $\rho_{S}(R)$ | `AS S` |
 
 ---
 
-# Ejercicios
-
-## Para practicar
-
-Sobre el esquema `Jugador`, `Categoria`, `Partido`, expresa en álgebra y luego
-en SQL:
-
-1. Nombres de jugadores de la categoría "Sub 15".
-2. Pares (jugador, categoría) — sólo nombres.
-3. Jugadores que han ganado al menos un partido como `jugador1`.
-4. (Difícil) Jugadores que han enfrentado a **todos** los jugadores de su categoría.
-
----
-
-# ¿Qué vimos hoy?
+# Resumen
 
 - Álgebra relacional: operadores básicos y derivados.
 - Cálculo relacional: tuplas y dominios.
@@ -309,10 +448,6 @@ en SQL:
 
 ---
 
-# ¿Preguntas?
+# Preguntas y Discusión  
 
-### Juega:
-
-- Escribe en álgebra una consulta que ya sepas en SQL.
-- Traduce un join complejo a $\sigma$ + $\times$.
-- Inventa una consulta donde necesites división.
+¿Tienes dudas? ¡Hablemos!
