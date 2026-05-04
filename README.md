@@ -7,7 +7,7 @@ PDF generada con Pandoc.
 ## Estructura de carpetas
 
 - `00-extras/`: Materiales complementarios (syllabus, referencias).
-- `01-introduccion-bd/` a `13-orm-aplicacion/`: Apuntes principales de cada clase
+- `01-introduccion-bd/` a `14-orm-aplicacion/`: Apuntes principales de cada clase
 numerada. Dentro de cada carpeta encontrarás un archivo `NN-nombre.md` y su PDF
 correspondiente.
 
