@@ -1,7 +1,7 @@
 ---
 title: "Migraciones en SQL (PostgreSQL)"
 author: "Diego Muñoz"
-date: "7 Mayo 2025"
+date: "28 Mayo 2026"
 theme: "metropolis"
 aspectratio: 169
 colorlinks: true
@@ -47,6 +47,169 @@ ALTER TABLE producto DROP COLUMN precio;
 ALTER TABLE producto ALTER COLUMN nombre TYPE VARCHAR(100);
 ALTER TABLE producto ADD CONSTRAINT nombre_unico UNIQUE(nombre);
 ```
+
+---
+
+# Renombrar una columna
+
+* En PostgreSQL el rename es atómico y conserva los datos:
+
+```sql
+ALTER TABLE producto RENAME COLUMN nombre TO descripcion;
+```
+
+* **Cuidado**: si hay código vivo leyendo `nombre`, el rename rompe la
+  aplicación en el instante en que se aplica.
+
+---
+
+# Renombrar de forma segura (expand/contract)
+
+Cuando no puedes detener la aplicación, el rename se hace en pasos:
+
+1. `ALTER TABLE producto ADD COLUMN descripcion TEXT;`
+2. Backfill: `UPDATE producto SET descripcion = nombre;`
+3. Desplegar código que escribe en ambas columnas y lee de la nueva.
+4. `ALTER TABLE producto DROP COLUMN nombre;` cuando ya nadie la usa.
+
+---
+
+# Cambiar el tipo de una columna
+
+Conversiones directas:
+
+* `VARCHAR(50)` → `VARCHAR(200)`, `VARCHAR` → `TEXT`.
+* `SMALLINT` → `INTEGER` → `BIGINT`.
+* `DECIMAL(10,2)` → `DECIMAL(12,2)`.
+
+```sql
+ALTER TABLE producto ALTER COLUMN nombre TYPE VARCHAR(200);
+```
+
+---
+
+# Cambiar el tipo: conversiones no directas
+
+Pierden información o requieren interpretar el dato. Se indica al
+motor cómo hacerlas con `USING`:
+
+* `VARCHAR(200)` → `VARCHAR(50)`.
+* `DECIMAL` → `INTEGER`.
+* `TEXT` → `INTEGER`, `TEXT` → `DATE`.
+
+```sql
+ALTER TABLE producto
+    ALTER COLUMN precio TYPE INTEGER
+    USING precio::INTEGER;  -- trunca: 12.99 -> 12
+```
+
+---
+
+# Cambio de tipo: precauciones
+
+* `ALTER ... TYPE` toma un **lock exclusivo** y puede **reescribir
+  toda la tabla**. En tablas grandes es lento y bloquea lecturas.
+* Si la conversión falla para alguna fila, la migración aborta entera.
+* Mejor limpiar los datos antes, o usar una columna intermedia:
+  agregar la nueva, hacer backfill validado, borrar la vieja.
+
+---
+
+# Transformar la forma de los datos
+
+Ejemplo: separar `fecha DATE` en `dia / mes / anio INT`.
+Se hace en **tres migraciones** independientes:
+
+```sql
+-- 00X_add_dia_mes_anio.sql
+ALTER TABLE evento ADD COLUMN dia  INT;
+ALTER TABLE evento ADD COLUMN mes  INT;
+ALTER TABLE evento ADD COLUMN anio INT;
+```
+
+---
+
+# Backfill y limpieza
+
+```sql
+-- 00Y_backfill_dia_mes_anio.sql
+UPDATE evento
+   SET dia  = EXTRACT(DAY   FROM fecha)::INT,
+       mes  = EXTRACT(MONTH FROM fecha)::INT,
+       anio = EXTRACT(YEAR  FROM fecha)::INT;
+
+-- 00Z_drop_fecha.sql
+ALTER TABLE evento DROP COLUMN fecha;
+```
+
+* El caso inverso, unir columnas, es análogo: `nombre || ' ' || apellido`.
+* Pasos separados → cada uno es revertible y observable.
+
+---
+
+# Agregar una columna NOT NULL
+
+`ADD COLUMN ... NOT NULL` sin `DEFAULT` falla si la tabla ya tiene
+filas: no hay valor que poner en las existentes.
+
+```sql
+-- falla si producto tiene filas
+ALTER TABLE producto ADD COLUMN stock INTEGER NOT NULL;
+```
+
+Se hace en tres pasos:
+
+```sql
+ALTER TABLE producto ADD COLUMN stock INTEGER;
+UPDATE producto SET stock = 0 WHERE stock IS NULL;
+ALTER TABLE producto ALTER COLUMN stock SET NOT NULL;
+```
+
+---
+
+# Agregar columna con DEFAULT
+
+```sql
+ALTER TABLE producto ADD COLUMN activo BOOLEAN DEFAULT TRUE;
+```
+
+* En PostgreSQL 11 o superior, si el `DEFAULT` es un valor
+  constante, el motor lo registra como metadato y no toca las
+  filas existentes. Es instantáneo.
+* En versiones anteriores, o si el `DEFAULT` es una función
+  (`now()`, `gen_random_uuid()`), se reescribe toda la tabla.
+
+El costo de la misma sentencia depende del motor y la versión.
+
+---
+
+# Agregar una FOREIGN KEY
+
+Crear el FK valida todas las filas existentes contra la tabla
+referenciada. En tablas grandes es lento y bloquea escrituras.
+
+```sql
+ALTER TABLE pedido
+    ADD CONSTRAINT fk_cliente
+    FOREIGN KEY (cliente_id) REFERENCES cliente(id);
+```
+
+---
+
+# FOREIGN KEY en dos pasos
+
+```sql
+ALTER TABLE pedido
+    ADD CONSTRAINT fk_cliente
+    FOREIGN KEY (cliente_id) REFERENCES cliente(id)
+    NOT VALID;  -- aplica solo a filas nuevas
+
+ALTER TABLE pedido VALIDATE CONSTRAINT fk_cliente;
+```
+
+* `NOT VALID` agrega la restricción sin revisar lo existente.
+* `VALIDATE CONSTRAINT` recorre las filas viejas después, sin
+  bloquear escrituras.
 
 ---
 
@@ -109,7 +272,7 @@ CREATE TABLE schema_migrations (
 
 # Aplicar migraciones manualmente
 
-1. Ejecutar el archivo SQL (por ejemplo con `psql` o DBeaver).
+1. Ejecutar el archivo SQL.
 2. Registrar la migración aplicada:
 
 ```sql
@@ -135,16 +298,21 @@ SELECT * FROM schema_migrations ORDER BY applied_at;
 ALTER TABLE producto DROP COLUMN precio;
 ```
 
-* El reverso no siempre es trivial (¡cuidado con perder datos!).
+* El reverso no siempre es trivial: un `DROP COLUMN` es **pérdida
+  irreversible** de datos salvo que tengas backup.
 
 ---
 
 # Buenas prácticas
 
-* No edites migraciones ya aplicadas.
+* **NO EDITES MIGRACIONES YA APLICADAS.**
 * Usa nombres claros y consistentes: `003_add_stock_column.sql`.
 * Aplica y registra cada migración **de una en una**.
 * Haz backup antes de aplicar migraciones en producción.
+* Separa las migraciones destructivas (`DROP COLUMN`, `DROP TABLE`)
+  en su propio archivo y revísalas dos veces.
+* Prueba la migración sobre una **copia de producción**, no solo
+  sobre la BD vacía de desarrollo.
 
 ---
 
@@ -158,10 +326,6 @@ ALTER TABLE producto DROP COLUMN precio;
 
 ---
 
-# ¿Preguntas?
+# Preguntas y Discusión
 
-### Juega:
-
-* Crea una carpeta con migraciones (`001`, `002`, ...).
-* Aplica migraciones en orden y registra cada una.
-* Prueba revertir una columna y ver el efecto.
+¿Tienes dudas? ¡Hablemos!
