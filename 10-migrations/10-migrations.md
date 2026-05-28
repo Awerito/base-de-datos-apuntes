@@ -266,7 +266,7 @@ CREATE TABLE schema_migrations (
 );
 ```
 
-* Guarda el nombre (o número) de cada migración aplicada.
+* Guarda el nombre o número de cada migración aplicada.
 
 ---
 
@@ -278,6 +278,48 @@ CREATE TABLE schema_migrations (
 ```sql
 INSERT INTO schema_migrations (version) VALUES ('001_create_producto');
 ```
+
+---
+
+# Migración auto-registrada
+
+El `INSERT` se incluye dentro del mismo archivo, en una transacción
+con el cambio de esquema:
+
+```sql
+-- 001_create_producto.sql
+BEGIN;
+
+CREATE TABLE producto (
+    id SERIAL PRIMARY KEY,
+    nombre TEXT NOT NULL
+);
+
+INSERT INTO schema_migrations (version) VALUES ('001_create_producto');
+
+COMMIT;
+```
+
+Si algo falla, el `ROLLBACK` revierte tanto el cambio como el registro.
+
+---
+
+# Aplicar solo las pendientes
+
+Antes de ejecutar, se consulta qué versiones ya están aplicadas:
+
+```sql
+SELECT version FROM schema_migrations;
+```
+
+Loop:
+
+1. Listar los archivos del directorio en orden.
+2. Saltar los que ya están en `schema_migrations`.
+3. Ejecutar el resto.
+
+La `PRIMARY KEY` sobre `version` evita duplicados si alguien reaplica
+una migración por error.
 
 ---
 
@@ -321,7 +363,7 @@ ALTER TABLE producto DROP COLUMN precio;
 * Una migración es un conjunto de instrucciones SQL para modificar el esquema de una base de datos.
 * En SQL se aplican directa y manualmente.
 * Las migraciones son secuenciales.
-* Dependen de un control manual (tabla de control).
+* Dependen de una tabla de control manual.
 * Existen herramientas para automatizar migraciones.
 
 ---
