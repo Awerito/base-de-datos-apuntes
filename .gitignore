@@ -348,4 +348,6 @@ tags
 
 controles/
 
+.sqlfluff
+
 # End of https://www.toptal.com/developers/gitignore/api/vim,linux,latex

@@ -59,27 +59,41 @@ LIMIT    n OFFSET m;                 -- cuántas filas
 
 * El alias definido en `SELECT` se puede usar en `GROUP BY` y `ORDER BY`, pero
   **no** en `WHERE` ni en `HAVING`: ahí hay que repetir la expresión completa.
-* Un agregado (`AVG`, `COUNT`) **no** se filtra en `WHERE`: se calcula en el paso
+* Un agregado como `AVG` o `COUNT` **no** se filtra en `WHERE`: se calcula en el paso
   de agrupación, **después** del `WHERE`. Para filtrar por un agregado existe
   `HAVING`.
 
 ---
 
-# Esos dos errores, en código
+# El alias del SELECT no existe en WHERE
 
 ```sql
 -- ERROR: column "dif" does not exist
-SELECT evaluacion, nota - 4.0 AS dif FROM nota WHERE dif > 0;
+SELECT evaluacion, nota - 4.0 AS dif
+FROM nota WHERE dif > 0;
 -- BIEN: repetir la expresión en el WHERE
-SELECT evaluacion, nota - 4.0 AS dif FROM nota WHERE nota - 4.0 > 0;
+SELECT evaluacion, nota - 4.0 AS dif
+FROM nota WHERE nota - 4.0 > 0;
 ```
+
+* El `WHERE` corre antes que el `SELECT`; el alias `dif` aún no existe.
+
+---
+
+# Un agregado no se filtra en WHERE
 
 ```sql
 -- ERROR: aggregate functions are not allowed in WHERE
-SELECT curso_id, AVG(nota) FROM nota WHERE AVG(nota) > 5 GROUP BY curso_id;
+SELECT curso_id, AVG(nota)
+FROM nota WHERE AVG(nota) > 5
+GROUP BY curso_id;
 -- BIEN: filtrar el agregado con HAVING
-SELECT curso_id, AVG(nota) FROM nota GROUP BY curso_id HAVING AVG(nota) > 5;
+SELECT curso_id, AVG(nota)
+FROM nota
+GROUP BY curso_id HAVING AVG(nota) > 5;
 ```
+
+* El agregado se calcula después del `WHERE`; para filtrarlo está `HAVING`.
 
 ---
 
@@ -114,10 +128,9 @@ CREATE TABLE nota (
 
 ---
 
-# Cómo cargar los datos (como migraciones)
+# Cómo cargar los datos como migraciones
 
-* En la carpeta `model/`, tres migraciones numeradas (igual que en la clase de
-  migraciones):
+* En la carpeta `model/`, tres migraciones numeradas:
   * `000-init-schema.sql`: crea el schema + `schema_migrations` + modelo base.
   * `001-add-table-notas.sql`: crea la tabla `nota`.
   * `002-insert-values.sql`: inserta todos los datos.
@@ -138,8 +151,8 @@ psql -d tu_bd -f model/002-insert-values.sql
 
 ## Empecemos por lo mínimo
 
-* Toda consulta nace de **dos piezas**: qué quiero ver (`SELECT`) y de dónde
-  (`FROM`).
+* Toda consulta nace de **dos piezas**: qué quiero ver con `SELECT` y de dónde
+  con `FROM`.
 * Sobre esa base iremos agregando todo lo demás.
 
 ---
@@ -170,7 +183,7 @@ SELECT
 FROM nota;
 ```
 
-* `AS` le pone un **nombre** (alias) a la columna calculada.
+* `AS` le pone un **alias** a la columna calculada.
 * El alias es opcional: `nota - 4.0 distancia` también funciona, pero con `AS`
   se lee mejor.
 
@@ -205,7 +218,7 @@ FROM nota
 ORDER BY curso_id ASC, nota DESC;
 ```
 
-* `ASC` (ascendente) es el valor por defecto; `DESC` es descendente.
+* `ASC` es ascendente y el valor por defecto; `DESC` es descendente.
 * Se puede ordenar por columnas que **no** aparecen en el `SELECT`.
 
 ---
@@ -324,8 +337,8 @@ SELECT * FROM alumno WHERE nombre ILIKE '%mar%';
 ```
 
 * `%` = cualquier cantidad de caracteres; `_` = exactamente uno.
-* `ILIKE` es como `LIKE` pero **ignora mayúsculas/minúsculas** (propio de
-  PostgreSQL).
+* `ILIKE` es como `LIKE` pero **ignora mayúsculas/minúsculas**; es propio de
+  PostgreSQL.
 
 ---
 
@@ -348,8 +361,8 @@ SELECT * FROM nota WHERE nota IS NOT NULL;
 # Lógica de tres valores
 
 * Con `NULL`, una condición no es solo verdadera o falsa: puede ser
-  **desconocida** (`UNKNOWN`).
-* `WHERE` solo deja pasar lo que es **verdadero** (descarta falso y desconocido).
+  **desconocida**, el valor `UNKNOWN`.
+* `WHERE` solo deja pasar lo que es **verdadero**: descarta falso y desconocido.
 * Consecuencia: si una columna tiene `NULL`, condiciones como `nota <> 7.0`
   **no** incluyen esa fila, aunque "intuitivamente" un desconocido no sea 7.
 
@@ -359,7 +372,7 @@ SELECT * FROM nota WHERE nota IS NOT NULL;
 
 ## Los datos viven repartidos
 
-* Una nota guarda `alumno_id` y `curso_id` como **números** (ids).
+* Una nota guarda `alumno_id` y `curso_id` como **números**, es decir ids.
 * Para ver el nombre del alumno o del curso, hay que **unir** tablas.
 
 ---
@@ -367,8 +380,8 @@ SELECT * FROM nota WHERE nota IS NOT NULL;
 # Repaso: tipos de JOIN
 
 * `INNER JOIN`: solo las filas con coincidencia en **ambas** tablas.
-* `LEFT JOIN`: todas las de la izquierda + lo que calce a la derecha
-  (lo que no calce queda en `NULL`).
+* `LEFT JOIN`: todas las de la izquierda más lo que calce a la derecha; lo que
+  no calce queda en `NULL`.
 * `RIGHT JOIN`: lo simétrico.
 * `FULL JOIN`: todo de ambos lados.
 
@@ -404,13 +417,11 @@ SELECT * FROM nota JOIN curso ON curso.id = nota.curso;
 
 ```sql
 -- El mismo JOIN, dos formas de escribirlo.
-
 -- ON: condición explícita, sirve siempre
 SELECT *
 FROM nota n
 JOIN curso c ON c.curso_id = n.curso_id;
-
--- USING: atajo porque la columna se llama igual (curso_id) en ambas
+-- USING: atajo porque la columna se llama igual (curso_id)
 SELECT *
 FROM nota
 JOIN curso USING (curso_id);
@@ -437,7 +448,7 @@ JOIN profesor p ON p.profesor_id = c.profesor_id;
 ```
 
 * Cada `JOIN` agrega una tabla más al conjunto.
-* Los **alias cortos** (`a`, `c`, `p`) hacen la consulta legible.
+* Los **alias cortos** como `a`, `c`, `p` hacen la consulta legible.
 
 ---
 
@@ -485,7 +496,7 @@ WHERE EXISTS (
 ```
 
 * A diferencia del `JOIN`, `EXISTS` **no duplica** filas aunque haya muchas
-  coincidencias. Volveremos sobre `EXISTS` más adelante.
+  coincidencias.
 
 ---
 
@@ -540,7 +551,7 @@ FROM nota
 GROUP BY curso_id;
 ```
 
-* `GROUP BY` divide las filas en grupos según el valor de la(s) columna(s).
+* `GROUP BY` divide las filas en grupos según el valor de las columnas indicadas.
 * La función de agregación se calcula **dentro de cada grupo**.
 
 ---
@@ -556,7 +567,7 @@ ORDER BY curso_id, evaluacion;
 ```
 
 * El grupo es la **combinación** de valores: un grupo por cada par
-  (curso_id, evaluacion).
+  curso_id + evaluacion.
 
 ---
 
@@ -588,8 +599,8 @@ GROUP BY curso_id
 HAVING AVG(nota) > 5.0;
 ```
 
-* `WHERE` filtra **filas** (antes de agrupar).
-* `HAVING` filtra **grupos** (después de agrupar), y puede usar agregados.
+* `WHERE` filtra **filas**, antes de agrupar.
+* `HAVING` filtra **grupos** después de agrupar, y puede usar agregados.
 
 ---
 
@@ -633,7 +644,7 @@ ORDER BY promedio DESC;
 
 ---
 
-# Subconsulta escalar (devuelve un solo valor)
+# Subconsulta escalar
 
 ```sql
 -- Notas que están por encima del promedio general
@@ -675,8 +686,8 @@ WHERE n.nota > (
 );
 ```
 
-* "Correlacionada" = la subconsulta **referencia** la fila externa
-  (`n.curso_id`).
+* "Correlacionada" = la subconsulta **referencia** la fila externa con
+  `n.curso_id`.
 * Se evalúa una vez por cada fila externa.
 
 ---
@@ -695,12 +706,12 @@ FROM curso c
 WHERE NOT EXISTS (SELECT 1 FROM nota n WHERE n.curso_id = c.curso_id);
 ```
 
-* `EXISTS` solo pregunta **si hay o no** filas; el `SELECT 1` es una convención
-  (da igual qué proyectes).
+* `EXISTS` solo pregunta **si hay o no** filas. Da igual qué columnas proyectes
+  dentro; `SELECT 1` es solo una convención.
 
 ---
 
-# Subconsulta en FROM (tabla derivada)
+# Subconsulta en FROM: tabla derivada
 
 ```sql
 -- Promedio por curso, y luego me quedo con los buenos
@@ -713,16 +724,16 @@ FROM (
 WHERE resumen.promedio > 5.0;
 ```
 
-* La subconsulta actúa como una **tabla temporal**; debe llevar un alias
-  (`AS resumen`).
+* La subconsulta actúa como una **tabla temporal**; debe llevar un alias, como
+  `AS resumen`.
 
 ---
 
-# Parte 6: CTEs (la cláusula WITH)
+# Parte 6: CTEs, la cláusula WITH
 
 ## Subconsultas con nombre y legibles
 
-* Una **CTE** (Common Table Expression) es una subconsulta a la que le pones
+* Una **CTE**, o Common Table Expression, es una subconsulta a la que le pones
   nombre **antes** de usarla.
 * Convierte consultas anidadas difíciles de leer en pasos claros.
 
@@ -759,12 +770,22 @@ con_nombre AS (
     FROM prom_curso p
     JOIN curso c ON c.curso_id = p.curso_id
 )
+```
+
+* Una CTE puede **usar** a las anteriores: `con_nombre` se apoya en `prom_curso`.
+
+---
+
+# CTEs: la consulta final
+
+```sql
+-- con_nombre(nombre, promedio) viene de las CTEs anteriores
 SELECT *
 FROM con_nombre
 ORDER BY promedio DESC;
 ```
 
-* Una CTE puede **usar** a las anteriores. Cada paso queda aislado y nombrado.
+* La consulta final lee la última CTE como si fuera una tabla.
 
 ---
 
@@ -791,7 +812,7 @@ WITH RECURSIVE numeros AS (
 SELECT n FROM numeros;
 ```
 
-* `WITH RECURSIVE` resuelve jerarquías (árboles, grafos): organigramas,
+* `WITH RECURSIVE` resuelve jerarquías como árboles o grafos: organigramas,
   categorías anidadas, etc. Tema avanzado, queda solo presentado.
 
 ---
@@ -832,15 +853,17 @@ SELECT
     curso_id,
     alumno_id,
     nota,
-    ROW_NUMBER() OVER (PARTITION BY curso_id ORDER BY nota DESC) AS posicion,
-    RANK()       OVER (PARTITION BY curso_id ORDER BY nota DESC) AS rank,
-    DENSE_RANK() OVER (PARTITION BY curso_id ORDER BY nota DESC) AS dense_rank
-FROM nota;
+    ROW_NUMBER() OVER w AS posicion,
+    RANK()       OVER w AS rank,
+    DENSE_RANK() OVER w AS dense_rank
+FROM nota
+WINDOW w AS (PARTITION BY curso_id ORDER BY nota DESC);
 ```
 
 * `ROW_NUMBER`: 1, 2, 3, 4... siempre único.
-* `RANK`: empates comparten número y **saltan** (1, 1, 3...).
-* `DENSE_RANK`: empates comparten número y **no saltan** (1, 1, 2...).
+* `RANK`: empates comparten número y **saltan**: 1, 1, 3...
+* `DENSE_RANK`: empates comparten número y **no saltan**: 1, 1, 2...
+* `WINDOW w AS (...)` define la ventana una vez y la reusas con `OVER w`.
 
 ---
 
@@ -850,9 +873,10 @@ FROM nota;
 -- Cómo cambió la nota respecto de la evaluación anterior
 SELECT
     alumno_id, curso_id, evaluacion, fecha, nota,
-    LAG(nota) OVER (PARTITION BY alumno_id, curso_id ORDER BY fecha) AS nota_previa,
-    nota - LAG(nota) OVER (PARTITION BY alumno_id, curso_id ORDER BY fecha) AS variacion
-FROM nota;
+    LAG(nota) OVER w AS nota_previa,
+    nota - LAG(nota) OVER w AS variacion
+FROM nota
+WINDOW w AS (PARTITION BY alumno_id, curso_id ORDER BY fecha);
 ```
 
 * `LAG` mira la fila **anterior** de la ventana; `LEAD`, la **siguiente**.
@@ -860,7 +884,7 @@ FROM nota;
 
 ---
 
-# Acumulados (running total)
+# Acumulados: running total
 
 ```sql
 -- Promedio acumulado de un alumno a lo largo del tiempo
@@ -878,7 +902,7 @@ FROM nota;
 
 ---
 
-# El marco de la ventana (frame)
+# El marco de la ventana: el frame
 
 ```sql
 SELECT
@@ -900,7 +924,7 @@ FROM nota;
 
 ## Combinar resultados de varias consultas
 
-* Hasta ahora combinábamos **columnas** (con `JOIN`).
+* Hasta ahora combinábamos **columnas** con `JOIN`.
 * Los operadores de conjuntos combinan **filas** de dos consultas que tienen
   las **mismas columnas**.
 
@@ -916,8 +940,8 @@ SELECT nombre FROM profesor;
 ```
 
 * `UNION` une y **elimina duplicados**.
-* `UNION ALL` une y **conserva** duplicados (es más rápido, no tiene que
-  deduplicar).
+* `UNION ALL` une y **conserva** duplicados; es más rápido porque no
+  deduplica.
 * Requisito: misma cantidad de columnas y tipos compatibles.
 
 ---
@@ -996,8 +1020,8 @@ SELECT
 FROM nota;
 ```
 
-* `EXTRACT` saca una parte (año, mes, día).
-* `DATE_TRUNC` "recorta" a una unidad (útil para agrupar por mes).
+* `EXTRACT` saca una parte: año, mes, día.
+* `DATE_TRUNC` "recorta" a una unidad, útil para agrupar por mes.
 * Las fechas admiten aritmética: `fecha + INTERVAL '7 days'`.
 
 ---
@@ -1037,7 +1061,7 @@ SELECT NULLIF(nota, 0) FROM nota;  -- 0 pasa a NULL
 
 ---
 
-# Conversión de tipos (casting)
+# Conversión de tipos: casting
 
 ```sql
 SELECT
@@ -1059,7 +1083,7 @@ FROM nota;
 
 ---
 
-# El mapa, otra vez (ahora con sentido)
+# El mapa, otra vez
 
 ```sql
 SELECT   columnas, agregados, ventanas   -- 5. qué muestro
@@ -1116,9 +1140,9 @@ ORDER BY promedio DESC;
 
 # Lo que combinamos en ese ejemplo
 
-* **JOIN** de tres tablas (nota, alumno, curso).
+* **JOIN** de tres tablas: nota, alumno, curso.
 * **GROUP BY** + `AVG` para el promedio de cada alumno por curso.
-* **Función ventana** (`RANK`) para ordenar dentro de cada curso.
+* **Función ventana** `RANK` para ordenar dentro de cada curso.
 * **CTE** para calcular el ranking y luego filtrarlo.
 * **Filtro**, **redondeo** y **orden** para presentar el resultado.
 
