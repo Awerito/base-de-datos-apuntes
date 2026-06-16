@@ -1,7 +1,7 @@
 ---
 title: "Consultas SQL en PostgreSQL: el mapa para armar cualquier consulta"
 author: "Diego Muñoz"
-date: "9 Junio 2026"
+date: "16 Junio 2026"
 theme: "metropolis"
 aspectratio: 169
 colorlinks: true
@@ -461,7 +461,7 @@ SELECT c1.nombre AS curso_a,
 FROM curso c1
 JOIN curso c2
   ON c1.profesor_id = c2.profesor_id
- AND c1.curso_id < c2.curso_id;   -- evita repetir pares y emparejar consigo mismo
+ AND c1.curso_id < c2.curso_id;   -- evita repetir pares
 ```
 
 * La misma tabla aparece **dos veces** con alias distintos.
@@ -1112,14 +1112,13 @@ LIMIT n OFFSET m;                          -- 7. cuántas
 
 ---
 
-# Ejemplo final: todo junto
+# Ejemplo final: todo junto (1/2)
 
 ```sql
 -- Top 1 alumno por curso, solo en cursos con promedio sobre 5.0
 WITH ranking AS (
     SELECT
-        c.nombre AS curso,
-        a.nombre AS alumno,
+        c.nombre AS curso, a.nombre AS alumno,
         AVG(n.nota) AS promedio_alumno,
         RANK() OVER (
             PARTITION BY n.curso_id
@@ -1129,7 +1128,16 @@ WITH ranking AS (
     JOIN alumno a ON a.alumno_id = n.alumno_id
     JOIN curso  c ON c.curso_id = n.curso_id
     GROUP BY c.nombre, a.nombre, n.curso_id
-)
+) (...)
+```
+
+---
+
+# Ejemplo final: todo junto (2/2)
+
+```sql
+-- Top 1 alumno por curso, solo en cursos con promedio sobre 5.0
+(...)
 SELECT curso, alumno, ROUND(promedio_alumno, 2) AS promedio
 FROM ranking
 WHERE posicion = 1
@@ -1163,6 +1171,5 @@ ORDER BY promedio DESC;
 
 ---
 
-# ¡Hablemos!
-
-¿Qué consulta te gustaría armar?
+# Preguntas y Discusión  
+¿Tienes dudas? ¡Hablemos!  
