@@ -1,18 +1,39 @@
-| **Unidad**                                                     | **Semana** | **Temas**                                                                                               | **Evaluaciones**                                                |
-|----------------------------------------------------------------|------------|---------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
-| **Unidad 1: Modelado y Normalización de Bases de Datos (RA1)** | Semana 1   | Introducción al curso y metodología. Introducción a bases de datos y modelos de datos.                  |                                                                 |
-|                                                                | Semana 2   | Modelo Entidad Relación: Conceptos clave (entidades, atributos, relaciones).                            |                                                                 |
-|                                                                | Semana 3   | Dependencias funcionales y normalización (1FN, 2FN, 3FN). Lenguaje de Definición de Datos (DDL) en SQL. |                                                                 |
-|                                                                | Semana 4   | Normalización avanzada (BCNF, 4FN, 5FN). Diseño físico de bases de datos (índices, particionamiento).   | **Evaluación: Control de Normalización (50%)**                  |
-|                                                                | Semana 5   | Taller de modelado y normalización (caso práctico). Revisión y cierre de la unidad.                     | **Entrega Proyecto Integrador (Etapa 1)**                       |
-| **Unidad 2: Consultas en Bases de Datos (RA2)**                | Semana 6   | Álgebra relacional y cálculo relacional. Introducción a SQL: SELECT, FROM, WHERE.                       | **Evaluación: Control de Álgebra y Cálculo Relacional (40%)**   |
-|                                                                | Semana 7   | Consultas SQL avanzadas: JOIN, GROUP BY, HAVING. Subconsultas y vistas.                                 |                                                                 |
-|                                                                | Semana 8   | Índices y optimización de consultas. Procedimientos almacenados y funciones en SQL.                     | **Evaluación: Control de LMD (60%)**                            |
-|                                                                | Semana 9   | Taller de consultas avanzadas y optimización. Revisión de la unidad y cierre.                           | **Entrega Proyecto Integrador (Etapa 2)**                       |
-| **Unidad 3: Control de Transacciones y Concurrencia (RA3)**    | Semana 10  | Concepto de transacción y ACID. Control de concurrencia: bloqueos y niveles de aislamiento.             |                                                                 |
-|                                                                | Semana 11  | Implementación de transacciones en SQL. Deadlocks y estrategias para evitarlos.                         | **Evaluación: Control de Transacciones (40%)**                  |
-|                                                                | Semana 12  | Introducción a programación en bases de datos: PL/SQL. Triggers en bases de datos.                      | **Evaluación: Control de Programación SQL (60%)**               |
-|                                                                | Semana 13  | Taller de programación en SQL (procedimientos, funciones y triggers). Revisión y cierre de la unidad.   |                                                                 |
-|                                                                | Semana 14  | Aplicación práctica: Desarrollo de una base de datos para una aplicación.                               |                                                                 |
-|                                                                | Semana 15  | Presentación de proyectos finales. Revisión de aprendizajes y cierre del curso.                         | **Entrega Proyecto Integrador (Etapa 3)**                       |
-| **Evaluaciones Finales y Cierre del Curso**                    | Semana 16  | Últimas evaluaciones, revisiones de proyectos o recuperativos.                                          |                                                                 |
+# Calendario de Evaluaciones - Bases de Datos (TENTATIVO)
+
+Primer semestre 2026. Martes 2h + Jueves 3h.
+
+## Calendario semana a semana
+
+| Sem | Martes     | Jueves     | Contenido                                         | Evaluación                                                           |
+|-----|--------    |--------    |-----------                                        |------------                                                          |
+| 1   | Mar 17     | Mar 19     | 01-Intro BD + 02-Definición BD                    |                                                                      |
+| 2   | Mar 24     | Mar 26     | 03-MER                                            |                                                                      |
+| 3   | Mar 31     | Abr 2      | 04-Modelo Relacional + 05-MER-MR                  |                                                                      |
+| 4   | Abr 7      | Abr 9      | 06-Normalización                                  |                                                                      |
+| 5   | Abr 14     | Abr 16     | Normalización cierre                              |                                                                      |
+| 6   | Abr 21     | **Abr 23** | Ejercicios                                        | **Control Normalización (Jue 23)**                                   |
+| 7   | Abr 28     | Abr 30     | 07-SQL Intro: PostgreSQL + Antares + CREATE TABLE |                                                                      |
+| 8   | May 5      | May 7      | 08-Transacciones                                  |                                                                      |
+| 9   | May 12     | May 14     | 09-Algebra relacional                             |                                                                      |
+| 10  | ~~May 19~~ | ~~May 21~~ | *SUSPENDIDA - Vida Universitaria*                 | —                                                                    |
+| 11  | May 26     | **May 28** | 10-Migraciones                                    | **Control Álgebra/Cálculo Relacional (Jue 14)**                      |
+| 12  | Jun 2      | Jun 4      | 11-Triggers y Funciones                           |                                                                      |
+| 13  | Jun 9      | Jun 11     | 12-SQL Consultas avanzadas (1/2)                  |                                                                      |
+| 14  | Jun 16     | **Jun 18** | Cierre Tarea 1                                    | **Tarea 1 (Jue 18) **                                                |
+| 15  | Jun 23     | Jun 25     | 12-SQL Consultas avanzadas (2/2)                  |                                                                      |
+| 16  | Jun 30     | **Jul 2**  | {pendiente}                                       |                                                                      |
+| 17  | Jul 7      | Jul 9      | {pendiente}                                       | **Última evaluación (Jul 9)**                                        |
+| 18  | Jul 14     | ~~Jul 16~~ | {pendiente}                                       | **Duelo a muerte con cuchillo contra el profe para salvar el ramo*** |
+
+*Jul 16 = feriado Virgen del Carmen. Sem 10 = semana de vida universitaria.*
+
+> *el profe tiene el cuchillo
+
+## Distancia entre controles
+
+| Control                    | Fecha      | Distancia al anterior  |
+|---------                   |-------     |----------------------- |
+| Normalización              | Jue Abr 23 | —                      |
+| Álgebra/Cálculo Relacional | Jue May 14 | 5 semanas              |
+| Tarea 1                    | Jue Jun 18 | 2 semanas              |
+| Programación SQL           | Jue Jul 9  | 3 semanas              |
