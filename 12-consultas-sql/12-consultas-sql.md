@@ -8,12 +8,12 @@ colorlinks: true
 output: beamer_presentation
 ---
 
-# ¿De qué se trata esta clase?
+# Consultas SQL avanzadas
 
 ## La receta para responder cualquier pregunta con SQL
 
-* Ya sabemos crear tablas, insertar datos y hacer `SELECT` básicos con `JOIN`.
-* Hoy aprendemos a **armar cualquier consulta**, por compleja que parezca.
+* Conocimientos previos: crear tablas, insertar datos y hacer `SELECT` básicos con `JOIN`.
+* Objetivo: **armar cualquier consulta**, por compleja que parezca.
 * La idea central: toda consulta sigue **el mismo esqueleto**. Si entiendes el
   esqueleto, solo vas rellenando piezas.
 
@@ -39,7 +39,7 @@ LIMIT    n OFFSET m;                 -- cuántas filas
 
 # El orden en que se ESCRIBE no es el orden en que se EJECUTA
 
-* Lo escribimos empezando por `SELECT`, pero la base de datos **no** lo procesa
+* Se escribe empezando por `SELECT`, pero la base de datos **no** lo procesa
   en ese orden.
 
 ## Orden lógico de ejecución
@@ -504,7 +504,6 @@ WHERE EXISTS (
 
 ## De muchas filas a un resumen
 
-* Hasta ahora cada fila del resultado venía de filas individuales.
 * Las **funciones de agregación** resumen muchas filas en **un** valor:
   promedios, totales, conteos.
 
@@ -924,9 +923,10 @@ FROM nota;
 
 ## Combinar resultados de varias consultas
 
-* Hasta ahora combinábamos **columnas** con `JOIN`.
-* Los operadores de conjuntos combinan **filas** de dos consultas que tienen
+* Combinar tablas con atributos diferentes requería `JOIN`.
+* Existen operadores de conjuntos combinan **filas** de dos consultas que tienen
   las **mismas columnas**.
+* Uno convina de forma *horizontal* mientras que el otro *vertical*.
 
 ---
 
@@ -1075,15 +1075,173 @@ FROM nota;
 
 ---
 
-# Parte 10: recapitulación
+# Parte 10: cómo se ejecuta la consulta
 
-## El mapa completo
+## Del plan lógico al plan real
 
-* Vimos cada cláusula por separado. Ahora juntémoslas en un solo cuadro mental.
+* Ya vimos el orden **lógico** de ejecución: `FROM` → `WHERE` → `GROUP BY` → ...
+* Pero el motor arma el plan **físico**: con qué algoritmo lee cada tabla, en
+  qué orden las une y si usa índices o no.
+* `EXPLAIN` te deja **ver ese plan** antes de confiar en una consulta lenta.
 
 ---
 
-# El mapa, otra vez
+# EXPLAIN: el plan, SIN ejecutar la consulta
+
+```sql
+-- Muestra el plan que la base USARÍA; NO ejecuta la consulta
+EXPLAIN
+SELECT * FROM nota WHERE nota >= 6.0;
+```
+
+* `EXPLAIN` solo **planifica y muestra**: no lee los datos ni mide tiempo real.
+* Los números que entrega son **estimaciones** del planificador, no mediciones.
+* Es seguro: aunque la consulta fuera un `UPDATE`, con `EXPLAIN` a secas **no**
+  se toca nada.
+
+---
+
+# Cómo leer un plan
+
+```text
+-- Verás algo parecido a esto (tus números variarán):
+Seq Scan on nota  (cost=0.00..1.71 rows=22 width=30)
+  Filter: (nota >= 6.0)
+```
+
+* `cost=arranque..total`: costo **estimado** en una unidad interna del
+  planificador.
+* `rows`: cuántas filas **estima** que devuelve ese nodo.
+* `width`: ancho estimado de cada fila en bytes.
+* `Filter`: la condición que el nodo aplica a las filas.
+
+---
+
+# Planes con varios nodos
+
+```text
+-- Plan de un JOIN nota-curso:
+Hash Join  (cost=1.58..3.33 rows=57)            <- 3. une ambos
+  Hash Cond: (n.curso_id = c.curso_id)
+  ->  Seq Scan on nota n  (cost=0.00..1.57)     <- 1. lee nota
+  ->  Hash  (cost=1.26..1.26 rows=26)           <- 2. hashea curso
+        ->  Seq Scan on curso c  (cost=0.00..1.26)
+```
+
+* Cada nodo entrega sus filas al nodo de **arriba**.
+* La indentación marca quién alimenta a quién.
+
+---
+
+# EXPLAIN ANALYZE: el plan REAL, ejecutándolo
+
+```sql
+-- Ahora SÍ ejecuta la consulta y mide lo que pasó de verdad
+EXPLAIN ANALYZE
+SELECT * FROM nota WHERE nota >= 6.0;
+```
+
+* Agrega a cada nodo el `actual time` y las `rows` **reales**, más el
+  `Execution Time` total.
+* **Cuidado**: ejecuta de verdad. Sobre un `UPDATE`/`DELETE` **modifica los
+  datos**. Para probar sin efectos, envuélvelo en una transacción y haz
+  `ROLLBACK`.
+
+---
+
+# Estimado vs real: para qué sirve ANALYZE
+
+```text
+Seq Scan on nota (cost=... rows=22 ...) (actual ... rows=21.00 ...)
+                          ^estimado                       ^real
+  Rows Removed by Filter: 36
+```
+
+* A la izquierda lo que el planificador **estimó** (`rows=22`); a la derecha lo
+  que **ocurrió** (`rows=21`). Acá casi calzan: estadísticas sanas.
+* Si estimado y real se separan **mucho**, el planificador está mal informado:
+  corre `ANALYZE nota;` para actualizar las estadísticas.
+* Ojo, son cosas distintas: `ANALYZE` (comando) recolecta estadísticas;
+  `EXPLAIN ANALYZE` ejecuta y mide una consulta.
+
+---
+
+# ¿Qué es un índice?
+
+* Un **índice** es una estructura auxiliar que deja a la base **encontrar
+  filas por el valor de una columna** sin leer toda la tabla, como el índice
+  de un libro.
+* **No** es una copia de los datos ni algo que se use siempre: es una
+  estructura aparte que apunta a las filas.
+* PostgreSQL crea uno solo para cada `PRIMARY KEY` y `UNIQUE`; el resto los
+  creas tú:
+
+```sql
+-- En nuestro modelo ya existe este índice sobre nota.curso_id
+CREATE INDEX idx_nota__curso ON nota (curso_id);
+```
+
+* Acelera las búsquedas, pero **ocupa espacio** y hay que mantenerlo en cada
+  `INSERT`/`UPDATE`: no se crean "por si acaso".
+
+---
+
+# Seq Scan vs Index Scan
+
+```sql
+-- Existe un índice en nota.curso_id (idx_nota__curso)
+EXPLAIN SELECT * FROM nota WHERE curso_id = 1;
+```
+
+```text
+Seq Scan on nota  (cost=0.00..1.71 rows=6 width=30)
+  Filter: (curso_id = 1)
+```
+
+* `Seq Scan`: lee la tabla **completa**, fila por fila.
+* `Index Scan`: usa el índice para ir **directo** a las filas que sirven.
+* Aun habiendo índice, eligió `Seq Scan`: tener un índice **no** obliga a
+  usarlo. ¿Por qué lo descartó?
+
+---
+
+# ¿Por qué Seq Scan si hay índice? Tablas chicas
+
+* En tablas chicas como las de esta clase, casi siempre verás `Seq Scan`
+  **aunque exista el índice**. No es un error.
+* Leer ~60 filas de corrido es más barato que abrir el índice e ir fila por
+  fila; el índice recién rinde con tablas **grandes** que devuelven **pocas**
+  filas.
+
+```sql
+-- Forzar el índice, solo para DEMOSTRAR (no usar en producción):
+SET enable_seqscan = off;
+EXPLAIN SELECT * FROM nota WHERE curso_id = 1;
+```
+
+```text
+Index Scan using idx_nota__curso on nota  (cost=0.14..8.25 rows=6)
+  Index Cond: (curso_id = 1)
+```
+
+* Estimó **8.25** para el índice vs **1.71** del `Seq Scan`: por eso no lo
+  eligió.
+
+---
+
+# Para qué te sirve EXPLAIN
+
+* Confirmar si una consulta usa el índice que esperabas.
+* Detectar un `Seq Scan` sobre una tabla **grande**: señal de índice faltante.
+* Ver dónde se va el tiempo en una consulta lenta (con `ANALYZE`).
+* Comparar dos formas de escribir la **misma** consulta.
+
+> Primero haz que la consulta sea **correcta**; recién entonces usa `EXPLAIN`
+> para hacerla **rápida**.
+
+---
+
+# Parte 11: recapitulación
 
 ```sql
 SELECT   columnas, agregados, ventanas   -- 5. qué muestro
